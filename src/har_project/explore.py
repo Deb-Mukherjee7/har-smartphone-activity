@@ -87,8 +87,10 @@ def main():
     parser.add_argument("--dataset-dir", type=Path, default=ROOT / "data/raw/UCI HAR Dataset")
     parser.add_argument("--output-dir", type=Path, default=ROOT / "reports/eda")
     args = parser.parse_args()
-    if not args.dataset_dir.exists():
-        download_dataset(args.dataset_dir.parent, args.dataset_dir.parent / "uci_har.zip")
+    if not (args.dataset_dir / "features.txt").is_file():
+        args.dataset_dir = download_dataset(
+            args.dataset_dir.parent, args.dataset_dir.parent / "uci_har.zip"
+        )
     explore(args.dataset_dir, args.output_dir)
 
 
