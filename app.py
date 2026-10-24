@@ -91,168 +91,170 @@ with predict_tab:
 
     if input_mode == "Official test sample":
         dataset_dir = ROOT / "data/raw/UCI HAR Dataset"
-        if not (dataset_dir / "features.txt").is_file():
-            try:
+        try:
+            if not (dataset_dir / "features.txt").is_file():
                 dataset_dir = download_dataset(
                     ROOT / "data/raw", ROOT / "data/raw/uci_har.zip"
                 )
-            except Exception as exc:
-                st.error(f"Could not locate or download the UCI HAR dataset: {exc}")
-                st.stop()
-        data = load_dataset(dataset_dir)
-        test_labels = data.y_test.reset_index(drop=True).astype(str)
-        sample_key = "official_test_sample_index"
-        if sample_key not in st.session_state:
-            st.session_state[sample_key] = 0
+            data = load_dataset(dataset_dir)
+        except Exception as exc:
+            st.error(f"Could not load the UCI HAR test set: {exc}")
+        else:
+            test_labels = data.y_test.reset_index(drop=True).astype(str)
+            sample_key = "official_test_sample_index"
+            if sample_key not in st.session_state:
+                st.session_state[sample_key] = 0
 
-        def choose_random_test_row():
-            st.session_state[sample_key] = int(np.random.randint(len(data.X_test)))
+            def choose_random_test_row():
+                st.session_state[sample_key] = int(np.random.randint(len(data.X_test)))
 
-        row_col, random_col = st.columns([4, 1])
-        with row_col:
-            sample_index = st.number_input(
-                "Test row (0-based)",
-                min_value=0,
-                max_value=len(data.X_test) - 1,
-                step=1,
-                key=sample_key,
-            )
-        with random_col:
-            st.write("")
-            st.button(
-                "Random sample",
-                on_click=choose_random_test_row,
-                use_container_width=True,
-            )
-        st.caption("The actual activity is hidden until you choose to reveal it.")
-        X = data.X_test.iloc[[int(sample_index)]]
-        sample_label = str(test_labels.iloc[int(sample_index)])
+            row_col, random_col = st.columns([4, 1])
+            with row_col:
+                sample_index = st.number_input(
+                    "Test row (0-based)",
+                    min_value=0,
+                    max_value=len(data.X_test) - 1,
+                    step=1,
+                    key=sample_key,
+                )
+            with random_col:
+                st.write("")
+                st.button(
+                    "Random sample",
+                    on_click=choose_random_test_row,
+                    use_container_width=True,
+                )
+            st.caption("The actual activity is hidden until you choose to reveal it.")
+            X = data.X_test.iloc[[int(sample_index)]]
+            sample_label = str(test_labels.iloc[int(sample_index)])
     else:
         uploaded = st.file_uploader(
             "Upload a CSV with the original UCI feature names", type=["csv"]
         )
         if uploaded is None:
             st.info("Upload one or more feature rows to get predictions.")
-            st.stop()
-        X = pd.read_csv(uploaded)
-        expected = bundle["feature_names"]
-        missing = [name for name in expected if name not in X.columns]
-        if missing:
-            st.error(
-                f"CSV is missing {len(missing)} required feature columns. "
-                f"Examples: {missing[:5]}"
-            )
-            st.stop()
-        X = X.loc[:, expected]
-        if X.empty or X.isna().any().any():
-            st.error("The uploaded CSV is empty or contains missing values.")
-            st.stop()
-
-    X = X.loc[:, bundle["feature_names"]]
-    scaled = bundle["scaler"].transform(X)
-    transformed = bundle["pca"].transform(scaled) if bundle["pca"] is not None else scaled
-    predictions = bundle["model"].predict(transformed)
-    probabilities = bundle["model"].predict_proba(transformed)
-    classes = list(bundle["model"].classes_)
-    first_prediction = str(predictions[0])
-    confidence = float(np.max(probabilities[0]))
-
-    result_cols = st.columns(3)
-    result_cols[0].metric(
-        "Predicted activity", first_prediction.replace("_", " ").title()
-    )
-    result_cols[1].metric("Top-class probability", f"{confidence:.1%}")
-    result_cols[2].metric(
-        "Input dimensions",
-        str(bundle["pca_components"]) if bundle["pca"] is not None else "561",
-    )
-    st.caption(
-        "Top-class probability is the model's reported score; it is not a guarantee "
-        "that the prediction is correct."
-    )
-
-    if sample_label is not None:
-        with st.expander("Reveal the true activity"):
-            actual_activity = sample_label.replace("_", " ").title()
-            st.write(f"Actual activity: **{actual_activity}**")
-            if first_prediction == sample_label:
-                st.success("The prediction matches the test label.")
+        else:
+            X = pd.read_csv(uploaded)
+            expected = bundle["feature_names"]
+            missing = [name for name in expected if name not in X.columns]
+            if missing:
+                st.error(
+                    f"CSV is missing {len(missing)} required feature columns. "
+                    f"Examples: {missing[:5]}"
+                )
+                X = None
             else:
-                st.warning("The prediction does not match the test label.")
+                X = X.loc[:, expected].apply(pd.to_numeric, errors="coerce")
+                if X.empty or X.isna().any().any():
+                    st.error("The uploaded CSV is empty or contains missing or nonnumeric values.")
+                    X = None
 
-    probability_frame = pd.DataFrame(
-        {"Activity": classes, "Probability": probabilities[0]}
-    ).sort_values("Probability")
-    probability_figure = px.bar(
-        probability_frame,
-        x="Probability",
-        y="Activity",
-        orientation="h",
-        labels={"Probability": "Model-reported probability"},
-        title="Scores for each activity",
-        color="Probability",
-        color_continuous_scale="teal",
-    )
-    probability_figure.update_layout(coloraxis_showscale=False, height=330)
-    st.plotly_chart(probability_figure, use_container_width=True)
+    if X is not None:
+        X = X.loc[:, bundle["feature_names"]]
+        scaled = bundle["scaler"].transform(X)
+        transformed = bundle["pca"].transform(scaled) if bundle["pca"] is not None else scaled
+        predictions = bundle["model"].predict(transformed)
+        probabilities = bundle["model"].predict_proba(transformed)
+        classes = list(bundle["model"].classes_)
+        first_prediction = str(predictions[0])
+        confidence = float(np.max(probabilities[0]))
 
-    with st.expander("Explore the sample in the 2D PCA view"):
-        embedding_frame = pd.DataFrame(
-            {
-                "PC1": assets["train_embedding"][:, 0],
-                "PC2": assets["train_embedding"][:, 1],
-                "Activity": assets["train_labels"],
-            }
+        result_cols = st.columns(3)
+        result_cols[0].metric(
+            "Predicted activity", first_prediction.replace("_", " ").title()
         )
-        pca_figure = px.scatter(
-            embedding_frame,
-            x="PC1",
-            y="PC2",
-            color="Activity",
-            opacity=0.45,
-            title="Training samples and selected input",
+        result_cols[1].metric("Top-class probability", f"{confidence:.1%}")
+        result_cols[2].metric(
+            "Input dimensions",
+            str(bundle["pca_components"]) if bundle["pca"] is not None else "561",
         )
-        sample_xy = assets["pca"].transform(assets["scaler"].transform(X))
-        pca_figure.add_trace(
-            go.Scatter(
-                x=sample_xy[:, 0],
-                y=sample_xy[:, 1],
-                mode="markers",
-                name="Selected input",
-                marker={
-                    "size": 15,
-                    "color": "#111827",
-                    "symbol": "star",
-                    "line": {"width": 2, "color": "white"},
-                },
-            )
-        )
-        st.plotly_chart(pca_figure, use_container_width=True)
         st.caption(
-            "This 2D projection is for visualization. The selected classifier may use "
-            "more PCA components or all 561 standardized features."
+            "Top-class probability is the model's reported score; it is not a guarantee "
+            "that the prediction is correct."
         )
 
-    if len(X) > 1:
-        output = pd.DataFrame({"predicted_activity": predictions})
-        output = pd.concat(
-            [
-                output,
-                pd.DataFrame(
-                    probabilities,
-                    columns=[f"probability_{value}" for value in classes],
-                ),
-            ],
-            axis=1,
+        if sample_label is not None:
+            with st.expander("Reveal the true activity"):
+                actual_activity = sample_label.replace("_", " ").title()
+                st.write(f"Actual activity: **{actual_activity}**")
+                if first_prediction == sample_label:
+                    st.success("The prediction matches the test label.")
+                else:
+                    st.warning("The prediction does not match the test label.")
+
+        probability_frame = pd.DataFrame(
+            {"Activity": classes, "Probability": probabilities[0]}
+        ).sort_values("Probability")
+        probability_figure = px.bar(
+            probability_frame,
+            x="Probability",
+            y="Activity",
+            orientation="h",
+            labels={"Probability": "Model-reported probability"},
+            title="Scores for each activity",
+            color="Probability",
+            color_continuous_scale="teal",
         )
-        st.subheader("Predictions for uploaded rows")
-        st.dataframe(output, use_container_width=True)
-        st.download_button(
-            "Download predictions",
-            output.to_csv(index=False),
-            "predictions.csv",
-            mime="text/csv",
-        )
+        probability_figure.update_layout(coloraxis_showscale=False, height=330)
+        st.plotly_chart(probability_figure, use_container_width=True)
+
+        with st.expander("Explore the sample in the 2D PCA view"):
+            embedding_frame = pd.DataFrame(
+                {
+                    "PC1": assets["train_embedding"][:, 0],
+                    "PC2": assets["train_embedding"][:, 1],
+                    "Activity": assets["train_labels"],
+                }
+            )
+            pca_figure = px.scatter(
+                embedding_frame,
+                x="PC1",
+                y="PC2",
+                color="Activity",
+                opacity=0.45,
+                title="Training samples and selected input",
+            )
+            sample_xy = assets["pca"].transform(assets["scaler"].transform(X))
+            pca_figure.add_trace(
+                go.Scatter(
+                    x=sample_xy[:, 0],
+                    y=sample_xy[:, 1],
+                    mode="markers",
+                    name="Selected input",
+                    marker={
+                        "size": 15,
+                        "color": "#111827",
+                        "symbol": "star",
+                        "line": {"width": 2, "color": "white"},
+                    },
+                )
+            )
+            st.plotly_chart(pca_figure, use_container_width=True)
+            st.caption(
+                "This 2D projection is for visualization. The selected classifier may use "
+                "more PCA components or all 561 standardized features."
+            )
+
+        if len(X) > 1:
+            output = pd.DataFrame({"predicted_activity": predictions})
+            output = pd.concat(
+                [
+                    output,
+                    pd.DataFrame(
+                        probabilities,
+                        columns=[f"probability_{value}" for value in classes],
+                    ),
+                ],
+                axis=1,
+            )
+            st.subheader("Predictions for uploaded rows")
+            st.dataframe(output, use_container_width=True)
+            st.download_button(
+                "Download predictions",
+                output.to_csv(index=False),
+                "predictions.csv",
+                mime="text/csv",
+            )
 
 with compare_tab:
     comparison_path = REPORT_DIR / "model_comparison.csv"
