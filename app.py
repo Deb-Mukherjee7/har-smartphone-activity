@@ -1,4 +1,4 @@
-"""Interactive UCI-HAR activity recognition and model comparison dashboard."""
+"""Simple UCI-HAR activity lab and model comparison dashboard."""
 
 from pathlib import Path
 
@@ -14,20 +14,11 @@ from har_project.data import download_dataset, load_dataset
 ROOT = Path(__file__).resolve().parent
 MODEL_DIR = ROOT / "models"
 REPORT_DIR = ROOT / "reports"
-ACTIVITIES = [
-    "WALKING",
-    "WALKING_UPSTAIRS",
-    "WALKING_DOWNSTAIRS",
-    "SITTING",
-    "STANDING",
-    "LAYING",
-]
 
 st.set_page_config(
     page_title="UCI-HAR Activity Lab",
     page_icon="📱",
     layout="wide",
-    initial_sidebar_state="expanded",
 )
 
 model_files = sorted(MODEL_DIR.glob("*/*.joblib"))
@@ -42,47 +33,50 @@ representations = sorted({path.parent.name for path in model_files})
 
 def representation_label(value: str) -> str:
     labels = {
-        "no_pca": "Full feature set · 561 features",
-        "pca_95": "PCA · 95% variance",
-        "pca_99": "PCA · 99% variance",
-        "pca_99_5": "PCA · 99.5% variance",
+        "no_pca": "Full features (561)",
+        "pca_95": "PCA (95%)",
+        "pca_99": "PCA (99%)",
+        "pca_99_5": "PCA (99.5%)",
     }
     return labels.get(value, value.replace("_", " ").upper())
 
 
-st.sidebar.title("Activity Lab")
-st.sidebar.caption("Choose a trained model to explore.")
-representation = st.sidebar.selectbox(
-    "Feature representation",
-    representations,
-    format_func=representation_label,
-)
-model_names = sorted(path.stem for path in model_files if path.parent.name == representation)
-model_name = st.sidebar.selectbox(
-    "Classifier", model_names, format_func=lambda value: value.replace("_", " ").title()
-)
-bundle = joblib.load(MODEL_DIR / representation / f"{model_name}.joblib")
-st.sidebar.divider()
-st.sidebar.metric(
-    "Features used",
-    str(bundle["pca_components"]) if bundle["pca"] is not None else "561",
-)
-st.sidebar.caption("The model predicts from UCI engineered features. It does not access live phone sensors.")
-
 st.title("Smartphone Activity Recognition")
 st.caption(
-    "Explore predictions and compare how feature reduction changes accuracy, speed, "
-    "model size, and performance across unseen participants."
+    "Try an activity prediction or compare the models and PCA settings."
 )
 
-predict_tab, compare_tab, robustness_tab, method_tab = st.tabs(
-    ["Try a prediction", "Compare models", "Participant robustness", "How it works"]
+control_cols = st.columns(2)
+with control_cols[0]:
+    representation = st.selectbox(
+        "Feature representation",
+        representations,
+        format_func=representation_label,
+    )
+with control_cols[1]:
+    model_names = sorted(
+        path.stem for path in model_files if path.parent.name == representation
+    )
+    model_name = st.selectbox(
+        "Classifier",
+        model_names,
+        format_func=lambda value: value.replace("_", " ").title(),
+    )
+
+bundle = joblib.load(MODEL_DIR / representation / f"{model_name}.joblib")
+input_dimensions = (
+    bundle["pca_components"] if bundle["pca"] is not None else 561
+)
+st.caption(
+    f"Selected: {representation_label(representation)} · "
+    f"{model_name.replace('_', ' ').title()} · {input_dimensions} input dimensions"
 )
 
-with predict_tab:
-    st.subheader("Try one activity sample")
+activity_tab, compare_tab = st.tabs(["Activity Lab", "Compare Models"])
+
+with activity_tab:
     input_mode = st.radio(
-        "Input source",
+        "Choose an input",
         ["Official test sample", "Upload feature CSV"],
         horizontal=True,
     )
@@ -124,7 +118,7 @@ with predict_tab:
                     on_click=choose_random_test_row,
                     use_container_width=True,
                 )
-            st.caption("The actual activity is hidden until you choose to reveal it.")
+            st.caption("The actual activity is hidden until you reveal it.")
             X = data.X_test.iloc[[int(sample_index)]]
             sample_label = str(test_labels.iloc[int(sample_index)])
     else:
@@ -152,25 +146,24 @@ with predict_tab:
     if X is not None:
         X = X.loc[:, bundle["feature_names"]]
         scaled = bundle["scaler"].transform(X)
-        transformed = bundle["pca"].transform(scaled) if bundle["pca"] is not None else scaled
+        transformed = (
+            bundle["pca"].transform(scaled) if bundle["pca"] is not None else scaled
+        )
         predictions = bundle["model"].predict(transformed)
         probabilities = bundle["model"].predict_proba(transformed)
         classes = list(bundle["model"].classes_)
         first_prediction = str(predictions[0])
-        confidence = float(np.max(probabilities[0]))
+        top_probability = float(np.max(probabilities[0]))
 
         result_cols = st.columns(3)
         result_cols[0].metric(
             "Predicted activity", first_prediction.replace("_", " ").title()
         )
-        result_cols[1].metric("Top-class probability", f"{confidence:.1%}")
-        result_cols[2].metric(
-            "Input dimensions",
-            str(bundle["pca_components"]) if bundle["pca"] is not None else "561",
-        )
+        result_cols[1].metric("Top-class probability", f"{top_probability:.1%}")
+        result_cols[2].metric("Features used", str(input_dimensions))
         st.caption(
-            "Top-class probability is the model's reported score; it is not a guarantee "
-            "that the prediction is correct."
+            "These are model-reported probabilities and have not been evaluated for "
+            "calibration. A 100% score does not guarantee a correct prediction."
         )
 
         if sample_label is not None:
@@ -191,14 +184,14 @@ with predict_tab:
             y="Activity",
             orientation="h",
             labels={"Probability": "Model-reported probability"},
-            title="Scores for each activity",
+            title="Activity scores",
             color="Probability",
             color_continuous_scale="teal",
         )
-        probability_figure.update_layout(coloraxis_showscale=False, height=330)
+        probability_figure.update_layout(coloraxis_showscale=False, height=300)
         st.plotly_chart(probability_figure, use_container_width=True)
 
-        with st.expander("Explore the sample in the 2D PCA view"):
+        with st.expander("Show the sample in the 2D PCA plot"):
             embedding_frame = pd.DataFrame(
                 {
                     "PC1": assets["train_embedding"][:, 0],
@@ -222,7 +215,7 @@ with predict_tab:
                     mode="markers",
                     name="Selected input",
                     marker={
-                        "size": 15,
+                        "size": 14,
                         "color": "#111827",
                         "symbol": "star",
                         "line": {"width": 2, "color": "white"},
@@ -231,8 +224,8 @@ with predict_tab:
             )
             st.plotly_chart(pca_figure, use_container_width=True)
             st.caption(
-                "This 2D projection is for visualization. The selected classifier may use "
-                "more PCA components or all 561 standardized features."
+                "This two-dimensional plot is for visualization. The selected model "
+                "uses the number of features shown above."
             )
 
         if len(X) > 1:
@@ -248,13 +241,58 @@ with predict_tab:
                 axis=1,
             )
             st.subheader("Predictions for uploaded rows")
-            st.dataframe(output, use_container_width=True)
+            st.dataframe(output, use_container_width=True, hide_index=True)
             st.download_button(
                 "Download predictions",
                 output.to_csv(index=False),
                 "predictions.csv",
                 mime="text/csv",
             )
+
+    with st.expander("Participant robustness"):
+        subject_path = REPORT_DIR / "subject_performance.csv"
+        if not subject_path.is_file():
+            st.info(
+                "Generate the report after training with "
+                "python -m har_project.subject_report."
+            )
+        else:
+            subject_data = pd.read_csv(subject_path)
+            selected_subjects = subject_data[
+                (subject_data["representation"] == representation)
+                & (subject_data["model"] == model_name)
+            ].sort_values("subject_id")
+            if selected_subjects.empty:
+                st.info("No participant scores were found for this model.")
+            else:
+                stats = st.columns(3)
+                stats[0].metric(
+                    "Mean participant macro-F1",
+                    f"{selected_subjects['macro_f1'].mean():.1%}",
+                )
+                stats[1].metric(
+                    "Lowest participant macro-F1",
+                    f"{selected_subjects['macro_f1'].min():.1%}",
+                )
+                stats[2].metric(
+                    "Participants tested", str(len(selected_subjects))
+                )
+                subject_figure = px.bar(
+                    selected_subjects,
+                    x="subject_id",
+                    y="macro_f1",
+                    hover_data=["accuracy", "balanced_accuracy", "sample_count"],
+                    labels={
+                        "subject_id": "Held-out participant",
+                        "macro_f1": "Macro-F1",
+                    },
+                    title="Score by held-out participant",
+                )
+                subject_figure.update_yaxes(range=[0, 1])
+                st.plotly_chart(subject_figure, use_container_width=True)
+                st.caption(
+                    "This shows how performance varies across people excluded from training."
+                )
 
 with compare_tab:
     comparison_path = REPORT_DIR / "model_comparison.csv"
@@ -303,7 +341,7 @@ with compare_tab:
             color="representation",
             barmode="group",
             labels={"model": "Classifier", "macro_f1": "Test macro-F1"},
-            title="Test performance by model and feature representation",
+            title="Test performance",
             hover_data=["accuracy", "pca_components", "retained_variance"],
         )
         score_figure.update_yaxes(range=[0, 1])
@@ -322,7 +360,7 @@ with compare_tab:
                 "macro_f1": "Test macro-F1",
                 "model_size_mb": "Model size (MB)",
             },
-            title="Accuracy–speed–size trade-off",
+            title="Accuracy, speed, and size",
         )
         st.plotly_chart(tradeoff_figure, use_container_width=True)
 
@@ -332,73 +370,3 @@ with compare_tab:
             use_container_width=True,
             hide_index=True,
         )
-
-with robustness_tab:
-    subject_path = REPORT_DIR / "subject_performance.csv"
-    if not subject_path.is_file():
-        st.info(
-            "Generate the participant report after training with "
-            "python -m har_project.subject_report."
-        )
-    else:
-        subject_data = pd.read_csv(subject_path)
-        selected_subjects = subject_data[
-            (subject_data["representation"] == representation)
-            & (subject_data["model"] == model_name)
-        ].sort_values("subject_id")
-        if selected_subjects.empty:
-            st.info("No participant scores were found for the selected model.")
-        else:
-            mean_score = selected_subjects["macro_f1"].mean()
-            lowest_score = selected_subjects["macro_f1"].min()
-            variation = selected_subjects["macro_f1"].std()
-            robustness_cols = st.columns(3)
-            robustness_cols[0].metric("Mean participant macro-F1", f"{mean_score:.1%}")
-            robustness_cols[1].metric("Lowest participant macro-F1", f"{lowest_score:.1%}")
-            robustness_cols[2].metric(
-                "Variation across participants",
-                f"{variation:.1%}" if pd.notna(variation) else "—",
-            )
-
-            subject_figure = px.bar(
-                selected_subjects,
-                x="subject_id",
-                y="macro_f1",
-                hover_data=["accuracy", "balanced_accuracy", "sample_count"],
-                labels={"subject_id": "Held-out participant", "macro_f1": "Macro-F1"},
-                title=f"{representation_label(representation)} · {model_name.replace('_', ' ').title()}",
-            )
-            subject_figure.update_yaxes(range=[0, 1])
-            st.plotly_chart(subject_figure, use_container_width=True)
-            st.dataframe(selected_subjects, use_container_width=True, hide_index=True)
-            st.caption(
-                "Each bar scores one official test participant. Use this as a robustness "
-                "diagnostic; do not tune models against these held-out test scores."
-            )
-
-with method_tab:
-    left, right = st.columns(2)
-    with left:
-        st.subheader("Experiment")
-        st.markdown(
-            "\n".join(
-                [
-                    "- Six activities from the UCI smartphone dataset.",
-                    "- 561 engineered features from accelerometer and gyroscope signals.",
-                    "- Seven classifiers compared across the full feature set and three PCA thresholds.",
-                    "- Five-fold GroupKFold validation keeps each participant in one fold.",
-                ]
-            )
-        )
-    with right:
-        st.subheader("Why the scores are more realistic")
-        st.markdown(
-            "The official training and test partitions contain different participants. "
-            "The model is therefore evaluated on people it did not train on. The participant "
-            "report shows how that score varies from person to person."
-        )
-    st.info(
-        "The demo consumes engineered UCI feature rows. Live smartphone use requires "
-        "a separate sensor collection and feature-extraction pipeline that matches the "
-        "UCI preprocessing."
-    )
