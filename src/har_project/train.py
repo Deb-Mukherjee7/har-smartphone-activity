@@ -84,8 +84,10 @@ def _representation_specs(config: dict):
 
 def run_experiment(config: dict, dataset_dir: Path | None = None) -> pd.DataFrame:
     dataset_dir = Path(dataset_dir or ROOT / config["data"]["dataset_dir"])
-    if not dataset_dir.exists():
-        download_dataset(ROOT / config["data"]["raw_dir"], ROOT / config["data"]["zip_path"])
+    if not (dataset_dir / "features.txt").is_file():
+        dataset_dir = download_dataset(
+            ROOT / config["data"]["raw_dir"], ROOT / config["data"]["zip_path"]
+        )
     data = load_dataset(dataset_dir)
     report_dir = ROOT / config["outputs"]["report_dir"]
     model_dir = ROOT / config["outputs"]["model_dir"]
