@@ -1,0 +1,29 @@
+project:
+  name: smartphone-human-activity-recognition
+  random_seed: 42
+
+data:
+  raw_dir: data/raw
+  dataset_dir: data/raw/UCI HAR Dataset
+  zip_path: data/raw/uci_har.zip
+
+validation:
+  # GroupKFold keeps a participant's rows in only one fold.
+  folds: 5
+
+models:
+  candidates:
+    - logistic_regression
+    - svm
+    - knn
+    - random_forest
+    - xgboost
+    - mlp
+    - stacked_ensemble
+  pca_variance_thresholds: [0.95, 0.99, 0.995]
+
+outputs:
+  model_dir: models
+  report_dir: reports
+  demo_default_model: stacked_ensemble
+  demo_default_representation: pca_99

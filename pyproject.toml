@@ -1,0 +1,35 @@
+[build-system]
+requires = ["setuptools>=68", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "har-smartphone-activity"
+version = "1.0.0"
+description = "Leakage-aware human activity recognition using the UCI smartphone dataset"
+readme = "README.md"
+requires-python = ">=3.10"
+dependencies = [
+  "joblib>=1.3,<2",
+  "matplotlib>=3.7,<4",
+  "numpy>=1.24,<3",
+  "pandas>=2.0,<3",
+  "plotly>=5.18,<7",
+  "PyYAML>=6.0,<7",
+  "scikit-learn>=1.3,<2",
+  "seaborn>=0.13,<1",
+  "streamlit>=1.32,<2",
+  "xgboost>=2.0,<4",
+]
+
+[project.scripts]
+har-download = "har_project.data:main"
+har-train = "har_project.train:main"
+har-predict = "har_project.predict:main"
+har-explore = "har_project.explore:main"
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.ruff]
+line-length = 100
+target-version = "py310"
