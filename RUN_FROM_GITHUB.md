@@ -46,7 +46,7 @@ python -m har_project.train
 python -m har_project.subject_report
 ```
 
-The downloader fetches and extracts the UCI HAR dataset. Training runs subject-wise cross-validation, fits the model comparisons, and can take several minutes or longer depending on the computer. Wait for the final `Saved comparison` and `Saved interactive demo model assets` messages. The final command uses those saved models to create participant-level robustness reports; it does not retrain them.
+The downloader fetches and extracts the UCI HAR dataset. Training compares five configured classifiers across four feature representations using subject-wise cross-validation, fits the final models, and can take several minutes or longer depending on the computer. The comparison CSV includes training-fold versus validation-fold macro-F1 gaps to help diagnose overfitting. Wait for the final `Saved comparison` and `Saved interactive demo model assets` messages. The final command uses those saved models to create participant-level robustness reports; it does not retrain them.
 
 ## 5. Open the demo
 
@@ -54,7 +54,7 @@ The downloader fetches and extracts the UCI HAR dataset. Training runs subject-w
 python -m streamlit run app.py
 ```
 
-Open the local URL printed in the terminal, usually `http://localhost:8501`. Keep the terminal open while using the app. Enter an official test row number or click **Random sample**; the prediction appears before the true label. Expand **Reveal the true activity** to check whether it was correct. You can also upload a CSV with the UCI engineered feature names. The **Compare models** tab charts accuracy, latency, and model size; **Participant robustness** shows how scores vary across held-out people. The **How it works** tab explains the evaluation. This demo does not collect live phone sensor data.
+Open the local URL printed in the terminal, usually `http://localhost:8501`. Keep the terminal open while using the app. Enter an official test row number or click **Random sample**; the prediction appears before the true label. Expand **Reveal the true activity** to check whether it was correct. You can also upload a CSV with the UCI engineered feature names. The **Compare Models** tab charts accuracy, latency, and model size. This demo does not collect live phone sensor data.
 
 ## 6. Find the results
 
