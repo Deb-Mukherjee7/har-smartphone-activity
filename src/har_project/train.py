@@ -109,6 +109,7 @@ def run_experiment(config: dict, dataset_dir: Path | None = None) -> pd.DataFram
     for representation, threshold in _representation_specs(config):
         print(f"\n=== Representation: {representation} ===")
         fold_records = {name: [] for name in candidates}
+        fold_train_records = {name: [] for name in candidates}
         fold_fit_seconds = {name: [] for name in candidates}
         for fold_number, (fit_idx, validation_idx) in enumerate(
             fold_splitter.split(data.X_train, y_train, groups=subjects), start=1
@@ -125,6 +126,8 @@ def run_experiment(config: dict, dataset_dir: Path | None = None) -> pd.DataFram
                 started = time.perf_counter()
                 _fit(model, X_fit, y_fit, groups_fit)
                 fit_seconds = time.perf_counter() - started
+                train_predicted = model.predict(X_fit)
+                fold_train_records[name].append(_score(y_fit, train_predicted))
                 predicted = model.predict(X_validation)
                 fold_records[name].append(_score(y_validation, predicted))
                 fold_fit_seconds[name].append(fit_seconds)
@@ -176,12 +179,18 @@ def run_experiment(config: dict, dataset_dir: Path | None = None) -> pd.DataFram
 
             cv_f1 = [item["macro_f1"] for item in fold_records[name]]
             cv_accuracy = [item["accuracy"] for item in fold_records[name]]
+            train_f1 = [item["macro_f1"] for item in fold_train_records[name]]
+            train_accuracy = [item["accuracy"] for item in fold_train_records[name]]
+            f1_gaps = [train - validation for train, validation in zip(train_f1, cv_f1)]
             row = {
                 "representation": representation,
                 "model": name,
                 **scores,
+                "cv_train_macro_f1_mean": float(np.mean(train_f1)),
+                "cv_train_accuracy_mean": float(np.mean(train_accuracy)),
                 "cv_macro_f1_mean": float(np.mean(cv_f1)),
                 "cv_macro_f1_std": float(np.std(cv_f1, ddof=1)),
+                "cv_macro_f1_gap_mean": float(np.mean(f1_gaps)),
                 "cv_accuracy_mean": float(np.mean(cv_accuracy)),
                 "grouped_cv_mean_fit_seconds": float(np.mean(fold_fit_seconds[name])),
                 "final_train_seconds": float(final_fit_seconds),
@@ -308,7 +317,7 @@ def run_experiment(config: dict, dataset_dir: Path | None = None) -> pd.DataFram
 
 def main():
     parser = argparse.ArgumentParser(
-        description="Compare six classifiers and a grouped stacking ensemble with and without PCA."
+        description="Compare configured classifiers with and without PCA using subject-wise cross-validation."
     )
     parser.add_argument("--config", type=Path, default=DEFAULT_CONFIG)
     parser.add_argument("--dataset-dir", type=Path, default=None)
