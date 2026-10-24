@@ -141,6 +141,7 @@ python -m pip install -r requirements.txt
 har-download
 har-explore
 har-train
+python -m har_project.subject_report
 streamlit run app.py
 ```
 
