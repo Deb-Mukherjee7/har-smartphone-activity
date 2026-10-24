@@ -13,12 +13,22 @@ import pandas as pd
 
 UCI_ZIP_URL = (
     "https://archive.ics.uci.edu/static/public/240/"
-    "human+activity+recognition+using+smartphones.zip"
+    "human%2Bactivity%2Brecognition%2Busing%2Bsmartphones.zip"
 )
 DEFAULT_RAW_DIR = Path("data/raw")
 DEFAULT_ZIP_PATH = DEFAULT_RAW_DIR / "uci_har.zip"
 EXPECTED_FEATURE_COUNT = 561
 EXPECTED_ACTIVITIES = 6
+DATASET_FILES = (
+    "features.txt",
+    "activity_labels.txt",
+    "train/X_train.txt",
+    "train/y_train.txt",
+    "train/subject_train.txt",
+    "test/X_test.txt",
+    "test/y_test.txt",
+    "test/subject_test.txt",
+)
 
 
 @dataclass
@@ -37,36 +47,94 @@ def download_dataset(raw_dir: Path = DEFAULT_RAW_DIR, zip_path: Path = DEFAULT_Z
     """Download and safely extract the official archive; return its dataset directory."""
 
     raw_dir.mkdir(parents=True, exist_ok=True)
-    dataset_dir = raw_dir / "UCI HAR Dataset"
-    if dataset_dir.exists() and (dataset_dir / "features.txt").exists():
+    dataset_dir = find_dataset_dir(raw_dir)
+    if dataset_dir is not None:
         print(f"Dataset already exists: {dataset_dir}")
         return dataset_dir
 
     zip_path.parent.mkdir(parents=True, exist_ok=True)
-    if not zip_path.exists():
-        print(f"Downloading UCI dataset from {UCI_ZIP_URL}")
-        request = urllib.request.Request(
-            UCI_ZIP_URL, headers={"User-Agent": "har-smartphone-activity/1.0"}
-        )
-        with urllib.request.urlopen(request, timeout=60) as response, zip_path.open("wb") as out:
-            shutil.copyfileobj(response, out)
+    zip_candidates = [zip_path]
+    zip_candidates.extend(
+        candidate
+        for candidate in sorted(Path(raw_dir).glob("*.zip"))
+        if candidate.resolve() != zip_path.resolve()
+    )
+    selected_zip = next((candidate for candidate in zip_candidates if _is_uci_har_archive(candidate)), None)
 
-    with zipfile.ZipFile(zip_path) as archive:
+    if selected_zip is None:
+        # Preserve any unrecognized existing ZIP and download to a fresh filename.
+        selected_zip = zip_path if not zip_path.exists() else zip_path.with_name("uci_har_download.zip")
+        if not selected_zip.exists():
+            print(f"Downloading UCI dataset from {UCI_ZIP_URL}")
+            request = urllib.request.Request(
+                UCI_ZIP_URL, headers={"User-Agent": "har-smartphone-activity/1.0"}
+            )
+            with urllib.request.urlopen(request, timeout=60) as response, selected_zip.open("wb") as out:
+                shutil.copyfileobj(response, out)
+        if not _is_uci_har_archive(selected_zip):
+            raise ValueError(
+                f"Downloaded file is not the original UCI HAR ZIP: {selected_zip}. "
+                "Download 'UCI HAR Dataset.zip' from the UCI dataset page and place it in data/raw/."
+            )
+
+    with zipfile.ZipFile(selected_zip) as archive:
         root = Path(raw_dir).resolve()
         for member in archive.infolist():
-            target = (Path(raw_dir) / member.filename).resolve()
+            # Normalize Windows-style separators before checking the extraction path.
+            normalized_name = member.filename.replace("\\", "/")
+            target = (Path(raw_dir) / normalized_name).resolve()
             if root not in target.parents and target != root:
                 raise ValueError(f"Unsafe path in dataset archive: {member.filename}")
         archive.extractall(raw_dir)
+        archive_preview = [name for name in archive.namelist() if not name.endswith("/")][:12]
 
-    if not (dataset_dir / "features.txt").exists():
-        # Some mirrors add a top-level folder; locate the canonical directory.
-        candidates = list(Path(raw_dir).rglob("UCI HAR Dataset/features.txt"))
-        if not candidates:
-            raise FileNotFoundError("Could not find 'UCI HAR Dataset/features.txt' after extraction.")
-        dataset_dir = candidates[0].parent
+    dataset_dir = find_dataset_dir(raw_dir)
+    if dataset_dir is None:
+        preview = ", ".join(archive_preview) or "(archive contains no files)"
+        raise FileNotFoundError(
+            "The ZIP was extracted, but it does not contain the required UCI HAR files "
+            "(features.txt, activity_labels.txt, and train/test files). "
+            f"Archive: {selected_zip}. First entries: {preview}. "
+            "Place the original 'UCI HAR Dataset.zip' in data/raw/ and retry."
+        )
     print(f"Dataset extracted to: {dataset_dir}")
     return dataset_dir
+
+
+def _is_uci_har_archive(zip_path: Path) -> bool:
+    """Return whether a ZIP contains the expected original UCI-HAR text files."""
+
+    if not Path(zip_path).is_file():
+        return False
+    try:
+        with zipfile.ZipFile(zip_path) as archive:
+            entries = set()
+            for info in archive.infolist():
+                name = info.filename.replace("\\", "/")
+                while name.startswith("./"):
+                    name = name[2:]
+                if name and not info.is_dir():
+                    entries.add(name.casefold())
+            for feature_path in entries:
+                if not feature_path.endswith("features.txt"):
+                    continue
+                prefix = feature_path[: -len("features.txt")]
+                if all(f"{prefix}{relative}".casefold() in entries for relative in DATASET_FILES):
+                    return True
+    except (OSError, zipfile.BadZipFile):
+        return False
+    return False
+
+
+def find_dataset_dir(search_root: Path) -> Path | None:
+    """Find a complete UCI HAR folder even when the ZIP uses a different top-level name."""
+
+    search_root = Path(search_root)
+    for feature_file in search_root.rglob("features.txt"):
+        candidate = feature_file.parent
+        if all((candidate / relative).is_file() for relative in DATASET_FILES):
+            return candidate
+    return None
 
 
 def _read_vector(path: Path) -> pd.Series:
@@ -84,17 +152,7 @@ def load_dataset(dataset_dir: Path) -> HARData:
     """Load the predefined subject-disjoint train/test split from the UCI text files."""
 
     dataset_dir = Path(dataset_dir)
-    required = [
-        "features.txt",
-        "activity_labels.txt",
-        "train/X_train.txt",
-        "train/y_train.txt",
-        "train/subject_train.txt",
-        "test/X_test.txt",
-        "test/y_test.txt",
-        "test/subject_test.txt",
-    ]
-    missing = [name for name in required if not (dataset_dir / name).is_file()]
+    missing = [name for name in DATASET_FILES if not (dataset_dir / name).is_file()]
     if missing:
         raise FileNotFoundError(
             f"Dataset is incomplete at {dataset_dir}. Missing: {', '.join(missing)}. "
