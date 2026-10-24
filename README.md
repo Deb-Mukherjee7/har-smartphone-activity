@@ -18,7 +18,7 @@ har-train
 streamlit run app.py
 ```
 
-Training runs grouped cross-validation and fits multiple models, so allow several minutes or more depending on the computer. Reports are written to `reports/`; fitted pipelines are written to `models/`. See [GUIDE.md](GUIDE.md) for the detailed code walkthrough, exact result files, batch prediction, limitations, and troubleshooting.
+Training runs grouped cross-validation and fits multiple models, so allow several minutes or more depending on the computer. Reports are written to `reports/`; fitted pipelines are written to `models/`. For concise setup instructions on a fresh computer, see [RUN_FROM_GITHUB.md](RUN_FROM_GITHUB.md). See [GUIDE.md](GUIDE.md) for the detailed code walkthrough, exact result files, batch prediction, limitations, and troubleshooting.
 
 The Streamlit page works with an official test sample or a CSV containing the 561 engineered UCI features. It does not read raw live phone sensors.
 
