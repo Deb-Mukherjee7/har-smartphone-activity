@@ -8,6 +8,7 @@ import pandas as pd
 import plotly.express as px
 import plotly.graph_objects as go
 import streamlit as st
+import yaml
 
 from har_project.data import download_dataset, load_dataset
 
@@ -21,7 +22,11 @@ st.set_page_config(
     layout="wide",
 )
 
-model_files = sorted(MODEL_DIR.glob("*/*.joblib"))
+with (ROOT / "config" / "default.yaml").open(encoding="utf-8") as config_file:
+    configured_models = set(yaml.safe_load(config_file)["models"]["candidates"])
+model_files = sorted(
+    path for path in MODEL_DIR.glob("*/*.joblib") if path.stem in configured_models
+)
 assets_path = MODEL_DIR / "demo_assets.joblib"
 if not model_files or not assets_path.is_file():
     st.error("Trained model files are missing. Run training from the project root first.")
@@ -300,6 +305,7 @@ with compare_tab:
         st.info("Run training to create reports/model_comparison.csv.")
     else:
         comparison = pd.read_csv(comparison_path)
+        comparison = comparison[comparison["model"].isin(configured_models)]
         chosen_representation = st.selectbox(
             "Compare representation",
             ["All representations"] + sorted(comparison["representation"].unique()),
