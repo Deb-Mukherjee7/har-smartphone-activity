@@ -15,15 +15,13 @@ models:
   candidates:
     - logistic_regression
     - svm
-    - knn
     - random_forest
     - xgboost
     - mlp
-    - stacked_ensemble
   pca_variance_thresholds: [0.95, 0.99, 0.995]
 
 outputs:
   model_dir: models
   report_dir: reports
-  demo_default_model: stacked_ensemble
-  demo_default_representation: pca_99
+  demo_default_model: logistic_regression
+  demo_default_representation: no_pca
