@@ -1,6 +1,6 @@
 # Human Activity Recognition on UCI-HAR
 
-PCA-based comparison of seven classifiers (including a subject-aware RF + XGBoost + Logistic Regression stack) across full features and 95%, 99%, and 99.5% variance settings. Uses the UCI subject-disjoint train/test split and five-fold `GroupKFold` evaluation. Includes accuracy, macro-F1, confusion matrices, training/inference timing, model size, exploratory analysis, and a Streamlit PCA-space demo.
+PCA-based comparison of seven classifiers (including a subject-aware RF + XGBoost + Logistic Regression stack) across full features and 95%, 99%, and 99.5% variance settings. Uses the UCI subject-disjoint train/test split and five-fold `GroupKFold` evaluation. Includes accuracy, macro-F1, per-participant robustness scores, confusion matrices, training/inference timing, model size, exploratory analysis, and a Streamlit PCA-space demo.
 
 ## Quick start
 
@@ -15,10 +15,11 @@ python -m pip install -r requirements.txt
 har-download
 har-explore
 har-train
+python -m har_project.subject_report
 streamlit run app.py
 ```
 
-Training runs grouped cross-validation and fits multiple models, so allow several minutes or more depending on the computer. Reports are written to `reports/`; fitted pipelines are written to `models/`. For concise setup instructions on a fresh computer, see [RUN_FROM_GITHUB.md](RUN_FROM_GITHUB.md). See [GUIDE.md](GUIDE.md) for the detailed code walkthrough, exact result files, batch prediction, limitations, and troubleshooting.
+Training runs grouped cross-validation and fits multiple models, so allow several minutes or more depending on the computer. Reports are written to `reports/`; fitted pipelines are written to `models/`. The participant report evaluates saved models on each held-out test participant without refitting. For concise setup instructions on a fresh computer, see [RUN_FROM_GITHUB.md](RUN_FROM_GITHUB.md). See [GUIDE.md](GUIDE.md) for the detailed code walkthrough, exact result files, batch prediction, limitations, and troubleshooting.
 
 The Streamlit page works with an official test sample or a CSV containing the 561 engineered UCI features. It does not read raw live phone sensors.
 
