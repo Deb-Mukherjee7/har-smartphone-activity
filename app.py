@@ -9,7 +9,7 @@ import plotly.express as px
 import plotly.graph_objects as go
 import streamlit as st
 
-from har_project.data import load_dataset
+from har_project.data import download_dataset, load_dataset
 
 ROOT = Path(__file__).resolve().parent
 MODEL_DIR = ROOT / "models"
@@ -44,9 +44,12 @@ input_mode = st.radio("Input", ["Choose a UCI test sample", "Upload feature CSV"
 sample_label = None
 if input_mode == "Choose a UCI test sample":
     dataset_dir = ROOT / "data/raw/UCI HAR Dataset"
-    if not dataset_dir.exists():
-        st.error("Download the dataset first with `har-download`.")
-        st.stop()
+    if not (dataset_dir / "features.txt").is_file():
+        try:
+            dataset_dir = download_dataset(ROOT / "data/raw", ROOT / "data/raw/uci_har.zip")
+        except Exception as exc:
+            st.error(f"Could not locate or download the UCI HAR dataset: {exc}")
+            st.stop()
     data = load_dataset(dataset_dir)
     sample_index = st.slider("Official test row", 0, len(data.X_test) - 1, 0)
     X = data.X_test.iloc[[sample_index]]
