@@ -43,9 +43,10 @@ Keep this environment active and run the remaining commands from the repository 
 python -m har_project.data
 python -m har_project.explore
 python -m har_project.train
+python -m har_project.subject_report
 ```
 
-The downloader fetches and extracts the UCI HAR dataset. Training runs subject-wise cross-validation, fits the model comparisons, and can take several minutes or longer depending on the computer. Wait for the final `Saved comparison` and `Saved interactive demo model assets` messages.
+The downloader fetches and extracts the UCI HAR dataset. Training runs subject-wise cross-validation, fits the model comparisons, and can take several minutes or longer depending on the computer. Wait for the final `Saved comparison` and `Saved interactive demo model assets` messages. The final command uses those saved models to create participant-level robustness reports; it does not retrain them.
 
 ## 5. Open the demo
 
@@ -58,6 +59,8 @@ Open the local URL printed in the terminal, usually `http://localhost:8501`. Kee
 ## 6. Find the results
 
 - `reports/model_comparison.csv` — test and cross-validation scores, timing, and model sizes.
+- `reports/subject_performance.csv` — accuracy and macro-F1 for each model on each held-out test participant.
+- `reports/subject_performance_summary.csv` — mean, variation, and lowest participant score for each model.
 - `reports/confusion_matrices/` — per-model plots of correct and incorrect activity predictions.
 - `reports/eda/` — exploratory analysis plots.
 - `models/` — trained model files used by the demo.
