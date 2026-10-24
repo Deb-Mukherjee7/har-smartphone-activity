@@ -34,7 +34,7 @@ The dataset has a predefined subject-disjoint split: roughly 21 subjects / 7,352
 
 Inside the official training portion, `GroupKFold` makes five validation folds based on subject ID. All windows from a person are kept together. In each outer fold, the scaler and PCA are fitted only on that fold's training subjects. The validation fold is then transformed and scored. After cross-validation, each model is fit using all official training subjects and scored on the held-out official test subjects.
 
-The stacked ensemble has another grouped split inside each outer training fold. It creates out-of-fold class probabilities from RF, XGBoost, and Logistic Regression. The meta-model learns from those predictions, so each meta-training row comes from a subject the base learners did not train on. This avoids training the stack from in-sample predictions.
+For each fold, the report records both training-fold and validation-fold scores. Their macro-F1 difference is `cv_macro_f1_gap_mean`; a consistently large positive gap suggests overfitting. A small gap with low validation scores points to underfitting, while validation variation across folds can indicate sensitivity to which participants are held out.
 
 The official test set is evaluated for each model and representation because this project is a model comparison. Treat it as the final benchmark set: avoid repeatedly changing hyperparameters based on its scores. Use grouped cross-validation on the training subjects for future tuning.
 
@@ -112,7 +112,7 @@ Stores the seed, data locations, 5-fold setting, PCA variance thresholds, list o
 
 ## 6. Install and run
 
-Run commands in a terminal from the folder containing `pyproject.toml`. Use Python 3.10 or newer. Downloading the dataset needs internet access. The complete grouped comparison fits many models, including nested models for stacking, so it can take several minutes or more depending on your computer.
+Run commands in a terminal from the folder containing `pyproject.toml`. Use Python 3.10 or newer. Downloading the dataset needs internet access. The grouped comparison fits five configured classifiers across four representations, so it can take several minutes or more depending on your computer.
 
 ### Windows PowerShell
 
@@ -176,7 +176,7 @@ After `har-train`:
 
 | Output | How to use it |
 | --- | --- |
-| `reports/model_comparison.csv` | Main result table: test accuracy, macro-F1, balanced accuracy, grouped CV results, training time, inference latency, size, PCA component count, and retained variance |
+| `reports/model_comparison.csv` | Main result table: test accuracy, macro-F1, balanced accuracy, grouped CV train and validation scores and their gap, training time, inference latency, size, PCA component count, and retained variance |
 | `reports/subject_performance.csv` | Accuracy, macro-F1, and balanced accuracy for every model and held-out participant |
 | `reports/subject_performance_summary.csv` | Mean, standard deviation, and lowest participant score by model and representation |
 | `reports/representation_summary.csv` | Quick representation-level score summary |
