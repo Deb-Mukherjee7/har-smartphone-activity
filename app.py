@@ -318,15 +318,15 @@ with compare_tab:
                 comparison["representation"] == chosen_representation
             ]
 
-        best_row = comparison.loc[comparison["macro_f1"].idxmax()]
+        best_row = comparison.loc[comparison["cv_macro_f1_mean"].idxmax()]
         fastest_row = comparison.loc[
             comparison["inference_latency_ms_per_sample"].idxmin()
         ]
         compact_row = comparison.loc[comparison["model_size_mb"].idxmin()]
         summary_cols = st.columns(3)
         summary_cols[0].metric(
-            "Best macro-F1",
-            f"{best_row['macro_f1']:.1%}",
+            "Best grouped CV macro-F1",
+            f"{best_row['cv_macro_f1_mean']:.1%}",
             f"{best_row['model']} · {best_row['representation']}",
         )
         summary_cols[1].metric(
@@ -371,8 +371,14 @@ with compare_tab:
         st.plotly_chart(tradeoff_figure, use_container_width=True)
 
         st.subheader("Detailed results")
+        if "cv_macro_f1_gap_mean" in comparison.columns:
+            st.caption(
+                "The train–validation gap is computed inside participant-grouped CV; "
+                "a larger positive gap can indicate overfitting. Use grouped CV to "
+                "choose settings and treat official test scores as the final benchmark."
+            )
         st.dataframe(
-            comparison.sort_values("macro_f1", ascending=False),
+            comparison.sort_values("cv_macro_f1_mean", ascending=False),
             use_container_width=True,
             hide_index=True,
         )
