@@ -56,7 +56,8 @@ Latency and model size are measured on the Python/scikit-learn implementation, n
 
 ```text
 har-smartphone-activity/
-├── app.py                         # Interactive Streamlit demo
+├── app.py                         # Prediction and analysis dashboard
+├── .streamlit/config.toml         # Light dashboard theme
 ├── config/default.yaml            # Paths, folds, PCA thresholds, model list
 ├── data/                          # Downloaded data (not committed)
 ├── models/                        # Saved pipelines and demo assets (not committed)
@@ -105,7 +106,7 @@ Loads a saved comparison model and predicts from a headered CSV. It validates th
 
 #### `app.py`
 
-Offers controls to choose the feature representation and classifier. The user can select an anonymous official test row or a random sample, see the prediction and confidence, then reveal the true label. It can also show how the selected model performed across held-out participants. The app accepts UCI engineered feature rows or a compatible CSV; raw sensor streams are not accepted.
+Provides four dashboard sections: prediction, model comparison, participant robustness, and methodology. The user can select an anonymous official test row or a random sample, see the prediction and model-reported probability, then reveal the true label. Comparison charts show the accuracy/speed/size trade-off; the participant view shows score variation across held-out people. The app accepts UCI engineered feature rows or a compatible CSV; raw sensor streams are not accepted.
 
 #### `config/default.yaml`
 
