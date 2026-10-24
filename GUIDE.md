@@ -4,7 +4,7 @@
 
 **Human Activity Recognition on UCI-HAR: PCA-Based Dimensionality Reduction with a Live Classification Demo** uses phone accelerometer and gyroscope features to classify six activities: walking, walking upstairs, walking downstairs, sitting, standing, and laying.
 
-The synopsis asks whether principal component analysis (PCA) can substantially reduce the 561 input features while keeping classification performance close to full-feature models. It also asks for accuracy and macro-F1, class-level confusion, training time, inference latency, model size, an unseen-subject evaluation, and an interactive demonstration that places a sample in a 2D PCA plot.
+The synopsis asks whether principal component analysis (PCA) can substantially reduce the 561 input features while keeping classification performance close to full-feature models. It also asks for accuracy and macro-F1, class-level confusion, training time, inference latency, model size, unseen-subject evaluation, and an interactive demonstration. The participant report breaks held-out test scores down by person.
 
 The system is designed as an educational and research benchmark. It does not access a phone, stream inertial signals, or derive UCI features from raw readings. The interactive app accepts engineered UCI feature rows or lets you choose a row from the official test set. The stretch goal of sensor-to-feature extraction requires additional phone-specific code and is outside this implementation.
 
@@ -66,7 +66,8 @@ har-smartphone-activity/
 │   ├── explore.py                 # Class balance, missingness, correlations, PCA curve
 │   ├── features.py                # Baselines and group-aware stacking classifier
 │   ├── predict.py                 # Command-line batch prediction
-│   └── train.py                   # Grouped CV, final evaluation, reports, saved models
+│   ├── train.py                   # Grouped CV, final evaluation, reports, saved models
+│   └── subject_report.py           # Held-out scores for each test participant
 ├── GUIDE.md                       # This detailed guide
 ├── README.md                      # Short quick start
 ├── pyproject.toml                 # Package metadata and command-line entry points
@@ -94,13 +95,17 @@ Runs four representations: all 561 standardized features, PCA retaining 95%, PCA
 
 The visualization PCA is not the same as the classifier PCA. It always has two components and is only used to display the sample location.
 
+#### `src/har_project/subject_report.py`
+
+Loads the saved models and evaluates each one on each participant in the official held-out test set. It writes per-participant accuracy, macro-F1, and balanced accuracy to `reports/subject_performance.csv`, plus mean, standard deviation, and lowest participant scores to `reports/subject_performance_summary.csv`. It does not refit models. Use these results as a robustness diagnostic, not to tune models against the held-out test set.
+
 #### `src/har_project/predict.py`
 
 Loads a saved comparison model and predicts from a headered CSV. It validates that all expected feature columns exist, orders them, applies the saved scaler/PCA, and writes labels and class probabilities to an output CSV.
 
 #### `app.py`
 
-Offers controls to choose the feature representation and classifier. The user can select a row from the official test set or upload a CSV, then see the predicted activity, confidence, class probability chart, and the sample's 2D PCA location against training rows. This is an interactive demonstration of the trained model; raw 50 Hz sensor streams are not accepted.
+Offers controls to choose the feature representation and classifier. The user can select an anonymous official test row or a random sample, see the prediction and confidence, then reveal the true label. It can also show how the selected model performed across held-out participants. The app accepts UCI engineered feature rows or a compatible CSV; raw sensor streams are not accepted.
 
 #### `config/default.yaml`
 
@@ -120,6 +125,7 @@ python -m pip install -r requirements.txt
 har-download
 har-explore
 har-train
+python -m har_project.subject_report
 streamlit run app.py
 ```
 
@@ -144,6 +150,7 @@ The browser opens the Streamlit page. Leave the terminal running while using the
 python -m har_project.data
 python -m har_project.explore
 python -m har_project.train
+python -m har_project.subject_report
 ```
 
 Useful optional paths:
@@ -170,6 +177,8 @@ After `har-train`:
 | Output | How to use it |
 | --- | --- |
 | `reports/model_comparison.csv` | Main result table: test accuracy, macro-F1, balanced accuracy, grouped CV results, training time, inference latency, size, PCA component count, and retained variance |
+| `reports/subject_performance.csv` | Accuracy, macro-F1, and balanced accuracy for every model and held-out participant |
+| `reports/subject_performance_summary.csv` | Mean, standard deviation, and lowest participant score by model and representation |
 | `reports/representation_summary.csv` | Quick representation-level score summary |
 | `reports/confusion_matrices/` | One confusion matrix for each classifier and representation; inspect sitting/standing errors and per-class confusions |
 | `reports/*_explained_variance.csv` | Exact retained PCA variance for each reduced representation |
