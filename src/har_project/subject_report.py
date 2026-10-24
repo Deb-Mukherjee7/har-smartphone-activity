@@ -37,7 +37,10 @@ def run_subject_report(config: dict, dataset_dir: Path | None = None) -> tuple[p
     report_dir = ROOT / config["outputs"]["report_dir"]
     report_dir.mkdir(parents=True, exist_ok=True)
 
-    model_paths = sorted(model_dir.glob("*/*.joblib"))
+    candidates = set(config["models"]["candidates"])
+    model_paths = sorted(
+        path for path in model_dir.glob("*/*.joblib") if path.stem in candidates
+    )
     if not model_paths:
         raise FileNotFoundError(
             f"No trained model files found in {model_dir}. Run training first."
