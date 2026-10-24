@@ -60,6 +60,12 @@ def download_dataset(raw_dir: Path = DEFAULT_RAW_DIR, zip_path: Path = DEFAULT_Z
         if candidate.resolve() != zip_path.resolve()
     )
     selected_zip = next((candidate for candidate in zip_candidates if _is_uci_har_archive(candidate)), None)
+    if selected_zip is None:
+        # The UCI download may be a wrapper ZIP containing the actual dataset ZIP.
+        for candidate in zip_candidates:
+            selected_zip = _extract_nested_uci_archive(candidate, raw_dir)
+            if selected_zip is not None:
+                break
 
     if selected_zip is None:
         # Preserve any unrecognized existing ZIP and download to a fresh filename.
@@ -72,10 +78,13 @@ def download_dataset(raw_dir: Path = DEFAULT_RAW_DIR, zip_path: Path = DEFAULT_Z
             with urllib.request.urlopen(request, timeout=60) as response, selected_zip.open("wb") as out:
                 shutil.copyfileobj(response, out)
         if not _is_uci_har_archive(selected_zip):
-            raise ValueError(
-                f"Downloaded file is not the original UCI HAR ZIP: {selected_zip}. "
-                "Download 'UCI HAR Dataset.zip' from the UCI dataset page and place it in data/raw/."
-            )
+            nested_zip = _extract_nested_uci_archive(selected_zip, raw_dir)
+            if nested_zip is None:
+                raise ValueError(
+                    f"Downloaded file is not the original UCI HAR ZIP: {selected_zip}. "
+                    "Download 'UCI HAR Dataset.zip' from the UCI dataset page and place it in data/raw/."
+                )
+            selected_zip = nested_zip
 
     with zipfile.ZipFile(selected_zip) as archive:
         root = Path(raw_dir).resolve()
@@ -99,6 +108,28 @@ def download_dataset(raw_dir: Path = DEFAULT_RAW_DIR, zip_path: Path = DEFAULT_Z
         )
     print(f"Dataset extracted to: {dataset_dir}")
     return dataset_dir
+
+
+def _extract_nested_uci_archive(container_path: Path, raw_dir: Path) -> Path | None:
+    """Extract a nested UCI dataset ZIP from the repository's outer download ZIP."""
+
+    if not Path(container_path).is_file():
+        return None
+    try:
+        with zipfile.ZipFile(container_path) as container:
+            for member in container.infolist():
+                normalized_name = member.filename.replace("\\", "/")
+                if member.is_dir() or normalized_name.rsplit("/", 1)[-1].casefold() != "uci har dataset.zip":
+                    continue
+                nested_path = Path(raw_dir) / "uci_har_nested.zip"
+                with container.open(member) as source, nested_path.open("wb") as target:
+                    shutil.copyfileobj(source, target)
+                if _is_uci_har_archive(nested_path):
+                    return nested_path
+                nested_path.unlink(missing_ok=True)
+    except (OSError, zipfile.BadZipFile):
+        return None
+    return None
 
 
 def _is_uci_har_archive(zip_path: Path) -> bool:
