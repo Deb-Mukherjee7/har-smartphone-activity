@@ -51,9 +51,27 @@ if input_mode == "Choose a UCI test sample":
             st.error(f"Could not locate or download the UCI HAR dataset: {exc}")
             st.stop()
     data = load_dataset(dataset_dir)
-    sample_index = st.slider("Official test row", 0, len(data.X_test) - 1, 0)
+    test_labels = data.y_test.reset_index(drop=True).astype(str)
+    activity_options = ["All activities"] + sorted(test_labels.unique().tolist())
+    selected_activity = st.selectbox("Filter samples by actual activity", activity_options)
+
+    if selected_activity == "All activities":
+        sample_options = list(range(len(data.X_test)))
+    else:
+        sample_options = np.flatnonzero(test_labels.to_numpy() == selected_activity).tolist()
+
+    sample_index = st.selectbox(
+        "Choose a test sample",
+        sample_options,
+        format_func=lambda index: (
+            f"Row {index} — {test_labels.iloc[index].replace('_', ' ').title()}"
+        ),
+    )
+    st.caption(
+        "The activity filter uses the known labels of the official test set to help browse samples."
+    )
     X = data.X_test.iloc[[sample_index]]
-    sample_label = str(data.y_test.iloc[sample_index])
+    sample_label = str(test_labels.iloc[sample_index])
 else:
     uploaded = st.file_uploader("Upload CSV with original UCI feature names", type=["csv"])
     if uploaded is None:
