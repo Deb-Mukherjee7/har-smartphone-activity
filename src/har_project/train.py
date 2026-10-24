@@ -224,6 +224,8 @@ def run_experiment(config: dict, dataset_dir: Path | None = None) -> pd.DataFram
             plt.close()
             print(
                 f"  {name}: test macro-F1={scores['macro_f1']:.4f}, "
+                f"CV macro-F1={np.mean(cv_f1):.4f}, "
+                f"train-validation gap={np.mean(f1_gaps):.4f}, "
                 f"accuracy={scores['accuracy']:.4f}, components={retained}"
             )
 
