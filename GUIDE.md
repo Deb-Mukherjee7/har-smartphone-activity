@@ -14,19 +14,17 @@ The UCI-HAR input has 561 features, many of which describe related properties of
 
 PCA is unsupervised: it preserves variance, not necessarily the distinctions that best separate activities. Therefore a higher retained-variance threshold is not guaranteed to yield better classification. The experiment measures that trade-off rather than assuming PCA improves the score.
 
-The project compares:
+The default comparison uses five complementary classifiers:
 
 | Classifier | Role in the comparison |
 | --- | --- |
 | Logistic Regression | Linear baseline |
 | RBF Support Vector Machine | Nonlinear margin-based classifier |
-| K-Nearest Neighbors | Distance-based baseline |
 | Random Forest | Tree ensemble baseline |
 | XGBoost | Gradient-boosted tree ensemble |
 | MLP | Feed-forward neural baseline |
-| Stacked ensemble | Random Forest + XGBoost + Logistic Regression, with a Logistic Regression meta-model |
 
-Together these cover linear, kernel, distance-based, tree, boosting, neural, and stacked approaches requested in the synopsis. The fixed hyperparameters are in `src/har_project/features.py`; they are comparison settings, not a full hyperparameter search.
+This keeps a useful mix of linear, kernel, tree, boosting, and neural approaches without adding a distance-based model that performed weaker in the supplied run or a slower stacking ensemble that did not clearly improve on the best individual model. The fixed hyperparameters are in `src/har_project/features.py`; they are comparison settings, not a full hyperparameter search. Change `models.candidates` in `config/default.yaml` to select the classifiers.
 
 ## 3. Dataset and leakage-aware evaluation
 
@@ -200,7 +198,7 @@ Create a CSV with a header row using the original UCI feature names. Example:
 
 ```bash
 har-predict my_feature_rows.csv \
-  --model models/pca_99/stacked_ensemble.joblib \
+  --model models/no_pca/logistic_regression.joblib \
   --output reports/my_predictions.csv
 ```
 
