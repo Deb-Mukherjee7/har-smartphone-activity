@@ -53,7 +53,7 @@ The downloader fetches and extracts the UCI HAR dataset. Training runs subject-w
 python -m streamlit run app.py
 ```
 
-Open the local URL printed in the terminal, usually `http://localhost:8501`. Keep the terminal open while using the app. Choose an activity filter and a test sample, or upload a CSV with the UCI engineered feature names. This demo does not collect live phone sensor data.
+Open the local URL printed in the terminal, usually `http://localhost:8501`. Keep the terminal open while using the app. Enter an official test row number or click **Random sample**; the prediction appears before the true label. Expand **Reveal the true activity** to check whether it was correct. You can also upload a CSV with the UCI engineered feature names. This demo does not collect live phone sensor data.
 
 ## 6. Find the results
 
