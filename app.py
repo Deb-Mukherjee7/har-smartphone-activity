@@ -159,6 +159,45 @@ st.caption(
     "training subjects. The classifier may use a different PCA component count."
 )
 
+st.subheader("Performance across held-out participants")
+subject_report_path = REPORT_DIR / "subject_performance.csv"
+if subject_report_path.is_file():
+    subject_report = pd.read_csv(subject_report_path)
+    selected_subjects = subject_report[
+        (subject_report["representation"] == representation)
+        & (subject_report["model"] == model_name)
+    ].sort_values("subject_id")
+    if selected_subjects.empty:
+        st.info("No participant-level scores were found for this model.")
+    else:
+        metric_cols = st.columns(3)
+        metric_cols[0].metric(
+            "Mean participant macro-F1", f"{selected_subjects['macro_f1'].mean():.1%}"
+        )
+        metric_cols[1].metric(
+            "Lowest participant macro-F1", f"{selected_subjects['macro_f1'].min():.1%}"
+        )
+        metric_cols[2].metric("Held-out participants", str(len(selected_subjects)))
+        subject_figure = px.bar(
+            selected_subjects,
+            x="subject_id",
+            y="macro_f1",
+            hover_data=["accuracy", "balanced_accuracy", "sample_count"],
+            labels={"subject_id": "Participant", "macro_f1": "Macro-F1"},
+            title=f"{representation} / {model_name}",
+        )
+        subject_figure.update_yaxes(range=[0, 1])
+        st.plotly_chart(subject_figure, use_container_width=True)
+        st.caption(
+            "Each bar scores one official test participant. Treat this as a robustness "
+            "diagnostic; do not use held-out test scores to tune the models."
+        )
+else:
+    st.info(
+        "Generate participant-level scores after training with "
+        "`python -m har_project.subject_report`."
+    )
+
 if len(X) > 1:
     st.subheader("Predictions for all uploaded rows")
     output = pd.DataFrame({"predicted_activity": predictions})
