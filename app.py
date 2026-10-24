@@ -381,13 +381,14 @@ with method_tab:
     with left:
         st.subheader("Experiment")
         st.markdown(
-            "- Six activities from the UCI smartphone dataset.
-"
-            "- 561 engineered features from accelerometer and gyroscope signals.
-"
-            "- Seven classifiers compared across the full feature set and three PCA thresholds.
-"
-            "- Five-fold GroupKFold validation keeps each participant in one fold."
+            "\n".join(
+                [
+                    "- Six activities from the UCI smartphone dataset.",
+                    "- 561 engineered features from accelerometer and gyroscope signals.",
+                    "- Seven classifiers compared across the full feature set and three PCA thresholds.",
+                    "- Five-fold GroupKFold validation keeps each participant in one fold.",
+                ]
+            )
         )
     with right:
         st.subheader("Why the scores are more realistic")
