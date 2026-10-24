@@ -52,26 +52,33 @@ if input_mode == "Choose a UCI test sample":
             st.stop()
     data = load_dataset(dataset_dir)
     test_labels = data.y_test.reset_index(drop=True).astype(str)
-    activity_options = ["All activities"] + sorted(test_labels.unique().tolist())
-    selected_activity = st.selectbox("Filter samples by actual activity", activity_options)
+    sample_key = "official_test_sample_index"
+    if sample_key not in st.session_state:
+        st.session_state[sample_key] = 0
 
-    if selected_activity == "All activities":
-        sample_options = list(range(len(data.X_test)))
-    else:
-        sample_options = np.flatnonzero(test_labels.to_numpy() == selected_activity).tolist()
+    def choose_random_test_row():
+        st.session_state[sample_key] = int(np.random.randint(len(data.X_test)))
 
-    sample_index = st.selectbox(
-        "Choose a test sample",
-        sample_options,
-        format_func=lambda index: (
-            f"Row {index} — {test_labels.iloc[index].replace('_', ' ').title()}"
-        ),
-    )
-    st.caption(
-        "The activity filter uses the known labels of the official test set to help browse samples."
-    )
-    X = data.X_test.iloc[[sample_index]]
-    sample_label = str(test_labels.iloc[sample_index])
+    sample_col, random_col = st.columns([4, 1])
+    with sample_col:
+        sample_index = st.number_input(
+            "Official test row (0-based)",
+            min_value=0,
+            max_value=len(data.X_test) - 1,
+            step=1,
+            key=sample_key,
+        )
+    with random_col:
+        st.write("")
+        st.button(
+            "Random sample",
+            on_click=choose_random_test_row,
+            use_container_width=True,
+        )
+    st.caption("The true activity stays hidden until you choose to reveal it below.")
+
+    X = data.X_test.iloc[[int(sample_index)]]
+    sample_label = str(test_labels.iloc[int(sample_index)])
 else:
     uploaded = st.file_uploader("Upload CSV with original UCI feature names", type=["csv"])
     if uploaded is None:
@@ -106,8 +113,14 @@ metric_cols[2].metric(
     if bundle["pca"] is not None
     else "561 (no PCA)"
 )
-if sample_label:
-    st.write(f"Known test label: **{sample_label.replace('_', ' ').title()}**")
+if sample_label is not None:
+    with st.expander("Reveal the true activity"):
+        actual_activity = sample_label.replace("_", " ").title()
+        st.write(f"Actual activity: **{actual_activity}**")
+        if first_prediction == sample_label:
+            st.success("The prediction matches the test label.")
+        else:
+            st.warning("The prediction does not match the test label.")
 st.write(f"Selected: `{representation}` + `{model_name}`")
 
 prob_df = pd.DataFrame({"Activity": classes, "Probability": probabilities[0]})
