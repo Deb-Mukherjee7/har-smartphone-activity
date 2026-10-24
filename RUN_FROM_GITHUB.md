@@ -35,7 +35,13 @@ python -m pip install --upgrade pip
 python -m pip install -r requirements.txt
 ```
 
-Keep this environment active and run the remaining commands from the repository root. The requirements install the project in the environment, so these commands use the correct project copy.
+Keep this environment active and run the remaining commands from the repository root. The requirements install the project in the environment. Confirm Python is importing this checkout before training:
+
+```bash
+python -c "import har_project; print(har_project.__file__)"
+```
+
+The printed path should end in this repository's `src/har_project/__init__.py`. If it points to another checkout, run `python -m pip install -e .` from this repository root, then check the path again. This keeps generated models and reports under the checkout you are using.
 
 ## 4. Download the dataset and train
 
